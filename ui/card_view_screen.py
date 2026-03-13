@@ -12,6 +12,67 @@ from ui.marquee_label import MarqueeLabel
 _CARD_INNER_W = 472
 
 
+def _truncate_to_lines(text: str, font: QFont, max_width: int, max_lines: int) -> str:
+    """
+    Respect the user's original line breaks first, then pixel-wrap any line
+    that is too wide. Truncates to max_lines total, appending '…' if cut.
+    """
+    fm = QFontMetrics(font)
+    result_lines = []
+
+    for paragraph in text.splitlines():
+        # Pixel-wrap each user paragraph into one or more display lines
+        words = paragraph.split()
+        if not words:
+            # blank line the user entered — keep it
+            result_lines.append("")
+            if len(result_lines) >= max_lines:
+                break
+            continue
+
+        current = ""
+        for word in words:
+            candidate = (current + " " + word).strip()
+            if fm.horizontalAdvance(candidate) <= max_width:
+                current = candidate
+            else:
+                if current:
+                    result_lines.append(current)
+                if len(result_lines) >= max_lines:
+                    break
+                current = word
+        else:
+            if current and len(result_lines) < max_lines:
+                result_lines.append(current)
+
+        if len(result_lines) >= max_lines:
+            break
+
+    # Check if we cut anything — if so, elide the last line
+    full_lines = []
+    for paragraph in text.splitlines():
+        words = paragraph.split()
+        if not words:
+            full_lines.append("")
+            continue
+        current = ""
+        for word in words:
+            candidate = (current + " " + word).strip()
+            if fm.horizontalAdvance(candidate) <= max_width:
+                current = candidate
+            else:
+                full_lines.append(current)
+                current = word
+        if current:
+            full_lines.append(current)
+
+    if len(full_lines) > max_lines and result_lines:
+        last = result_lines[-1]
+        result_lines[-1] = fm.elidedText(last + " …", Qt.ElideRight, max_width)
+
+    return "\n".join(result_lines)
+
+
 def _smart_label(text: str, font: QFont, color: str, bg: str) -> QWidget:
     """
     Returns a QLabel (word-wrap) for normal text.
@@ -87,8 +148,9 @@ class CardViewScreen(QWidget):
 
         # ── Card widget ────────────────────────────────────────────────────────
         self.card_frame = QFrame()
-        self.card_frame.setFixedSize(560, 400)
+        self.card_frame.setFixedSize(560, 480)
         self.card_frame.setCursor(Qt.PointingHandCursor)
+        self.card_frame.setClipping = True   # prevent children painting outside
         self._apply_card_style()
 
         card_inner = QVBoxLayout(self.card_frame)
@@ -117,15 +179,22 @@ class CardViewScreen(QWidget):
         self.back_trans.hide()
         card_inner.addWidget(self.back_trans)
 
-        # ── Back: description — always word-wrap, smaller font
-        self.back_desc = QLabel(self.card.get("description", ""))
-        self.back_desc.setFont(QFont("Helvetica Neue", 14))
+        # ── Back: description — pre-truncated to 3 lines, no Qt word-wrap needed
+        desc_font = QFont("Helvetica Neue", 17)
+        desc_fm   = QFontMetrics(desc_font)
+        desc_h    = desc_fm.lineSpacing() * 5 + 8
+
+        desc_text = _truncate_to_lines(
+            self.card.get("description", ""), desc_font, _CARD_INNER_W, 5
+        )
+        self.back_desc = QLabel(desc_text)
+        self.back_desc.setFont(desc_font)
         self.back_desc.setAlignment(Qt.AlignCenter)
         self.back_desc.setWordWrap(True)
+        self.back_desc.setFixedHeight(desc_h)
         self.back_desc.setStyleSheet(
             f"color: {sc}; background: transparent; border: none;"
         )
-        self.back_desc.setMaximumHeight(80)
         self.back_desc.hide()
         card_inner.addWidget(self.back_desc)
 
@@ -248,7 +317,11 @@ class CardViewScreen(QWidget):
         else:
             self.back_trans.setStyleSheet(f"color: {tc}; background: transparent; border: none;")
 
-        self.back_desc.setText(self.card.get("description", ""))
+        desc_text = _truncate_to_lines(
+            self.card.get("description", ""),
+            self.back_desc.font(), _CARD_INNER_W, 5
+        )
+        self.back_desc.setText(desc_text)
         self.back_desc.setStyleSheet(
             f"color: {sc}; background: transparent; border: none;"
         )

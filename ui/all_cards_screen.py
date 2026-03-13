@@ -93,7 +93,11 @@ class AllCardsScreen(QWidget):
         layout.addSpacing(24)
 
         # ── Scrollable card grid ───────────────────────────────────────────────
-        cards = database.get_all_cards(self.language)
+        color_order = {hex_: i for i, (hex_, _) in enumerate(CARD_COLORS)}
+        cards = sorted(
+            database.get_all_cards(self.language),
+            key=lambda c: color_order.get(c["color"], 999)
+        )
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
