@@ -90,6 +90,13 @@ def delete_card(language, card_id):
     conn.close()
 
 
+def delete_language_db(language):
+    """Permanently delete the entire language deck (.db file)."""
+    path = get_db_path(language)
+    if os.path.exists(path):
+        os.remove(path)
+
+
 def search_cards(language, query):
     path = get_db_path(language)
     if not os.path.exists(path):

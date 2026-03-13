@@ -3,9 +3,10 @@ from PySide6.QtWidgets import (
     QPushButton, QScrollArea, QGridLayout, QFrame
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QColor
+from PySide6.QtGui import QFont
 import database
 from ui.styles import *
+from ui.marquee_label import MarqueeLabel
 
 
 # ── Mini card widget ───────────────────────────────────────────────────────────
@@ -19,11 +20,6 @@ class MiniCard(QFrame):
         self._on_click = on_click
         self.setFixedSize(210, 145)
         self.setCursor(Qt.PointingHandCursor)
-
-        # Auto-detect readable text colour for any card background
-        bg = QColor(card["color"])
-        lum = (bg.red() * 299 + bg.green() * 587 + bg.blue() * 114) / 1000
-        text_color = "#2A2018" if lum > 140 else "#F5ECD7"
 
         self.setStyleSheet(f"""
             QFrame {{
@@ -40,13 +36,13 @@ class MiniCard(QFrame):
         inner.setContentsMargins(14, 14, 14, 14)
         inner.setAlignment(Qt.AlignCenter)
 
-        word = QLabel(card["word"])
-        word.setAlignment(Qt.AlignCenter)
-        word.setFont(QFont("Georgia", 16, QFont.Bold))
-        word.setWordWrap(True)
-        word.setStyleSheet(
-            f"color: {text_color}; background: transparent; border: none;"
+        word = MarqueeLabel(
+            text=card["word"],
+            font=QFont("Georgia", 16, QFont.Bold),
+            color="#1A1A1A",
+            bg_color=card["color"],
         )
+        word.setFixedHeight(36)
         inner.addWidget(word)
 
     def mousePressEvent(self, event):

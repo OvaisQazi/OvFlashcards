@@ -3,9 +3,10 @@ from PySide6.QtWidgets import (
     QPushButton, QFrame, QMessageBox, QGraphicsOpacityEffect
 )
 from PySide6.QtCore import Qt, QPropertyAnimation
-from PySide6.QtGui import QFont, QColor
+from PySide6.QtGui import QFont
 import database
 from ui.styles import *
+from ui.marquee_label import MarqueeLabel
 
 
 class CardViewScreen(QWidget):
@@ -72,35 +73,36 @@ class CardViewScreen(QWidget):
         card_inner.setAlignment(Qt.AlignCenter)
 
         tc, sc = self._text_colors()
+        bg = self.card["color"]
 
-        # Front content
-        self.front_word = QLabel(self.card["word"])
-        self.front_word.setAlignment(Qt.AlignCenter)
-        self.front_word.setFont(QFont("Georgia", 44, QFont.Bold))
-        self.front_word.setWordWrap(True)
-        self.front_word.setStyleSheet(
-            f"color: {tc}; background: transparent; border: none;"
+        # Front content — MarqueeLabel scrolls if word is too long
+        self.front_word = MarqueeLabel(
+            text=self.card["word"],
+            font=QFont("Georgia", 44, QFont.Bold),
+            color=tc,
+            bg_color=bg,
         )
+        self.front_word.setFixedHeight(70)
         card_inner.addWidget(self.front_word)
 
         # Back content (hidden initially)
-        self.back_trans = QLabel(self.card["translation"])
-        self.back_trans.setAlignment(Qt.AlignCenter)
-        self.back_trans.setFont(QFont("Georgia", 38, QFont.Bold))
-        self.back_trans.setWordWrap(True)
-        self.back_trans.setStyleSheet(
-            f"color: {tc}; background: transparent; border: none;"
+        self.back_trans = MarqueeLabel(
+            text=self.card["translation"],
+            font=QFont("Georgia", 36, QFont.Bold),
+            color=tc,
+            bg_color=bg,
         )
+        self.back_trans.setFixedHeight(60)
         self.back_trans.hide()
         card_inner.addWidget(self.back_trans)
 
-        self.back_desc = QLabel(self.card.get("description", ""))
-        self.back_desc.setAlignment(Qt.AlignCenter)
-        self.back_desc.setFont(QFont("Helvetica Neue", 16))
-        self.back_desc.setWordWrap(True)
-        self.back_desc.setStyleSheet(
-            f"color: {sc}; background: transparent; border: none;"
+        self.back_desc = MarqueeLabel(
+            text=self.card.get("description", ""),
+            font=QFont("Helvetica Neue", 15),
+            color=sc,
+            bg_color=bg,
         )
+        self.back_desc.setFixedHeight(30)
         self.back_desc.hide()
         card_inner.addWidget(self.back_desc)
 
@@ -130,12 +132,8 @@ class CardViewScreen(QWidget):
     # ── Styling helpers ────────────────────────────────────────────────────────
 
     def _text_colors(self):
-        """Return (primary, secondary) text colors for the card background."""
-        bg = QColor(self.card["color"])
-        lum = (bg.red() * 299 + bg.green() * 587 + bg.blue() * 114) / 1000
-        if lum > 140:
-            return "#2A2018", "#7A6A58"
-        return "#F5ECD7", "#C4B098"
+        """All card colours are light pastels — always use dark text."""
+        return "#1A1A1A", "#4A4A4A"
 
     def _apply_card_style(self):
         self.card_frame.setStyleSheet(f"""
@@ -209,20 +207,21 @@ class CardViewScreen(QWidget):
     def _refresh_card_display(self):
         """Update all labels and colours after an edit."""
         tc, sc = self._text_colors()
+        bg = self.card["color"]
         self._apply_card_style()
 
         self.front_word.setText(self.card["word"])
-        self.front_word.setStyleSheet(
-            f"color: {tc}; background: transparent; border: none;"
-        )
+        self.front_word.setTextColor(tc)
+        self.front_word.setBgColor(bg)
+
         self.back_trans.setText(self.card["translation"])
-        self.back_trans.setStyleSheet(
-            f"color: {tc}; background: transparent; border: none;"
-        )
+        self.back_trans.setTextColor(tc)
+        self.back_trans.setBgColor(bg)
+
         self.back_desc.setText(self.card.get("description", ""))
-        self.back_desc.setStyleSheet(
-            f"color: {sc}; background: transparent; border: none;"
-        )
+        self.back_desc.setTextColor(sc)
+        self.back_desc.setBgColor(bg)
+
         self.hint.setStyleSheet(
             f"color: {sc}; font-size: 11px; background: transparent; border: none; margin-top: 6px;"
         )

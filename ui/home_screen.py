@@ -43,6 +43,12 @@ class HomeScreen(QWidget):
         back_btn.clicked.connect(self.app.go_to_start)
         top.addWidget(back_btn)
         top.addStretch()
+
+        delete_deck_btn = QPushButton("Delete Deck")
+        delete_deck_btn.setStyleSheet(BTN_DANGER)
+        delete_deck_btn.clicked.connect(self._delete_deck)
+        top.addWidget(delete_deck_btn)
+
         layout.addLayout(top)
         layout.addSpacing(30)
 
@@ -112,3 +118,16 @@ class HomeScreen(QWidget):
             self, "Coming Soon",
             "Spaced repetition practice is coming soon!\n\nIt will use the FSRS algorithm to schedule your reviews."
         )
+
+    def _delete_deck(self):
+        reply = QMessageBox.warning(
+            self,
+            "Delete Deck",
+            f'Are you sure you want to delete the entire "{self.language}" deck?\n\n'
+            f'This will permanently delete all cards in it and cannot be undone.',
+            QMessageBox.Yes | QMessageBox.Cancel,
+            QMessageBox.Cancel
+        )
+        if reply == QMessageBox.Yes:
+            database.delete_language_db(self.language)
+            self.app.go_to_start()
