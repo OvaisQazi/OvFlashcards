@@ -3,10 +3,34 @@ from PySide6.QtWidgets import (
     QPushButton, QFrame, QMessageBox, QGraphicsOpacityEffect
 )
 from PySide6.QtCore import Qt, QPropertyAnimation
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QFontMetrics
 import database
 from ui.styles import *
 from ui.marquee_label import MarqueeLabel
+
+# Available text width inside card frame (560px wide - 88px margins)
+_CARD_INNER_W = 472
+
+
+def _smart_label(text: str, font: QFont, color: str, bg: str) -> QWidget:
+    """
+    Returns a QLabel (word-wrap) for normal text.
+    Returns a MarqueeLabel ONLY when the text is a single unbreakable token
+    that is too wide to fit on one line inside the card.
+    """
+    is_single_token = " " not in text.strip()
+    too_wide = QFontMetrics(font).horizontalAdvance(text) > _CARD_INNER_W
+
+    if is_single_token and too_wide:
+        w = MarqueeLabel(text=text, font=font, color=color, bg_color=bg)
+        return w
+
+    lbl = QLabel(text)
+    lbl.setFont(font)
+    lbl.setAlignment(Qt.AlignCenter)
+    lbl.setWordWrap(True)
+    lbl.setStyleSheet(f"color: {color}; background: transparent; border: none;")
+    return lbl
 
 
 class CardViewScreen(QWidget):
@@ -63,7 +87,7 @@ class CardViewScreen(QWidget):
 
         # ── Card widget ────────────────────────────────────────────────────────
         self.card_frame = QFrame()
-        self.card_frame.setFixedSize(560, 370)
+        self.card_frame.setFixedSize(560, 400)
         self.card_frame.setCursor(Qt.PointingHandCursor)
         self._apply_card_style()
 
@@ -75,34 +99,33 @@ class CardViewScreen(QWidget):
         tc, sc = self._text_colors()
         bg = self.card["color"]
 
-        # Front content — MarqueeLabel scrolls if word is too long
-        self.front_word = MarqueeLabel(
-            text=self.card["word"],
-            font=QFont("Georgia", 44, QFont.Bold),
-            color=tc,
-            bg_color=bg,
+        # ── Front: word (QLabel with word-wrap; MarqueeLabel only for single
+        #           long tokens that can't wrap)
+        self.front_word = _smart_label(
+            self.card["word"], QFont("Georgia", 44, QFont.Bold), tc, bg
         )
-        self.front_word.setFixedHeight(70)
+        self.front_word.setMinimumHeight(60)
+        self.front_word.setMaximumHeight(130)
         card_inner.addWidget(self.front_word)
 
-        # Back content (hidden initially)
-        self.back_trans = MarqueeLabel(
-            text=self.card["translation"],
-            font=QFont("Georgia", 36, QFont.Bold),
-            color=tc,
-            bg_color=bg,
+        # ── Back: translation
+        self.back_trans = _smart_label(
+            self.card["translation"], QFont("Georgia", 36, QFont.Bold), tc, bg
         )
-        self.back_trans.setFixedHeight(60)
+        self.back_trans.setMinimumHeight(55)
+        self.back_trans.setMaximumHeight(110)
         self.back_trans.hide()
         card_inner.addWidget(self.back_trans)
 
-        self.back_desc = MarqueeLabel(
-            text=self.card.get("description", ""),
-            font=QFont("Helvetica Neue", 15),
-            color=sc,
-            bg_color=bg,
+        # ── Back: description — always word-wrap, smaller font
+        self.back_desc = QLabel(self.card.get("description", ""))
+        self.back_desc.setFont(QFont("Helvetica Neue", 14))
+        self.back_desc.setAlignment(Qt.AlignCenter)
+        self.back_desc.setWordWrap(True)
+        self.back_desc.setStyleSheet(
+            f"color: {sc}; background: transparent; border: none;"
         )
-        self.back_desc.setFixedHeight(30)
+        self.back_desc.setMaximumHeight(80)
         self.back_desc.hide()
         card_inner.addWidget(self.back_desc)
 
@@ -210,18 +233,25 @@ class CardViewScreen(QWidget):
         bg = self.card["color"]
         self._apply_card_style()
 
+        # Both QLabel and MarqueeLabel have setText; only MarqueeLabel has setTextColor/setBgColor
         self.front_word.setText(self.card["word"])
-        self.front_word.setTextColor(tc)
-        self.front_word.setBgColor(bg)
+        if isinstance(self.front_word, MarqueeLabel):
+            self.front_word.setTextColor(tc)
+            self.front_word.setBgColor(bg)
+        else:
+            self.front_word.setStyleSheet(f"color: {tc}; background: transparent; border: none;")
 
         self.back_trans.setText(self.card["translation"])
-        self.back_trans.setTextColor(tc)
-        self.back_trans.setBgColor(bg)
+        if isinstance(self.back_trans, MarqueeLabel):
+            self.back_trans.setTextColor(tc)
+            self.back_trans.setBgColor(bg)
+        else:
+            self.back_trans.setStyleSheet(f"color: {tc}; background: transparent; border: none;")
 
         self.back_desc.setText(self.card.get("description", ""))
-        self.back_desc.setTextColor(sc)
-        self.back_desc.setBgColor(bg)
-
+        self.back_desc.setStyleSheet(
+            f"color: {sc}; background: transparent; border: none;"
+        )
         self.hint.setStyleSheet(
             f"color: {sc}; font-size: 11px; background: transparent; border: none; margin-top: 6px;"
         )

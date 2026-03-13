@@ -3,10 +3,9 @@ from PySide6.QtWidgets import (
     QPushButton, QScrollArea, QGridLayout, QFrame
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QFontMetrics
 import database
 from ui.styles import *
-from ui.marquee_label import MarqueeLabel
 
 
 # ── Mini card widget ───────────────────────────────────────────────────────────
@@ -33,16 +32,16 @@ class MiniCard(QFrame):
         """)
 
         inner = QVBoxLayout(self)
-        inner.setContentsMargins(14, 14, 14, 14)
+        inner.setContentsMargins(12, 12, 12, 12)
         inner.setAlignment(Qt.AlignCenter)
 
-        word = MarqueeLabel(
-            text=card["word"],
-            font=QFont("Georgia", 16, QFont.Bold),
-            color="#1A1A1A",
-            bg_color=card["color"],
+        word = QLabel(card["word"])
+        word.setAlignment(Qt.AlignCenter)
+        word.setFont(QFont("Georgia", 15, QFont.Bold))
+        word.setWordWrap(True)
+        word.setStyleSheet(
+            "color: #1A1A1A; background: transparent; border: none;"
         )
-        word.setFixedHeight(36)
         inner.addWidget(word)
 
     def mousePressEvent(self, event):

@@ -1,22 +1,13 @@
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Qt, QTimer, QRect
-from PySide6.QtGui import QPainter, QFontMetrics, QFont, QColor
+from PySide6.QtGui import QPainter, QFontMetrics, QFont, QColor, QPen
 
 
 class MarqueeLabel(QWidget):
     """
-    A label that displays text normally when it fits.
-    When the text is too wide it smoothly slides left and then resets,
-    giving a ticker-tape / marquee effect.
-
-    Parameters
-    ----------
-    text        : str   — text to display
-    font        : QFont — font to use
-    color       : str   — CSS hex color for the text
-    bg_color    : str   — hex color of the card background (for fade edges)
-    speed       : int   — pixels per timer tick (default 1)
-    pause_ms    : int   — milliseconds to pause at each end (default 1200)
+    Displays text centred when it fits.
+    When the text is wider than the widget it smoothly scrolls left,
+    pauses, resets, pauses, then scrolls again.
     """
 
     def __init__(
@@ -26,34 +17,34 @@ class MarqueeLabel(QWidget):
         color: str = "#1A1A1A",
         bg_color: str = "#FFFFFF",
         speed: int = 1,
-        pause_ms: int = 1200,
+        pause_ms: int = 1400,
         parent=None,
     ):
         super().__init__(parent)
-        self._text = text
-        self._font = font or QFont("Georgia", 16)
-        self._color = QColor(color)
+        self._text     = text
+        self._font     = font or QFont("Georgia", 16)
+        self._color    = QColor(color)
         self._bg_color = QColor(bg_color)
-        self._speed = speed
+        self._speed    = speed
         self._pause_ms = pause_ms
 
-        self._offset = 0
-        self._text_width = 0
-        self._scrolling = False
-        self._pausing = False
+        self._offset      = 0
+        self._pausing     = False
+        self._initialized = False   # True after first resizeEvent
 
         self._timer = QTimer(self)
+        self._timer.setInterval(16)   # ~60 fps
         self._timer.timeout.connect(self._tick)
 
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setMinimumHeight(self._line_height() + 8)
+        self.setMinimumHeight(QFontMetrics(self._font).height() + 10)
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
     def setText(self, text: str):
-        self._text = text
-        self._offset = 0
-        self._update_scroll_state()
+        self._text    = text
+        self._offset  = 0
+        self._pausing = False
+        self._restart_if_needed()
         self.update()
 
     def setTextColor(self, color: str):
@@ -65,99 +56,108 @@ class MarqueeLabel(QWidget):
         self.update()
 
     def setTextFont(self, font: QFont):
-        self._font = font
-        self.setMinimumHeight(self._line_height() + 8)
+        self._font   = font
         self._offset = 0
-        self._update_scroll_state()
+        self.setMinimumHeight(QFontMetrics(font).height() + 10)
+        self._restart_if_needed()
         self.update()
 
-    # ── Internal helpers ───────────────────────────────────────────────────────
+    # ── Helpers ────────────────────────────────────────────────────────────────
 
-    def _line_height(self) -> int:
-        return QFontMetrics(self._font).height()
-
-    def _measure_text(self) -> int:
+    def _text_width(self) -> int:
         return QFontMetrics(self._font).horizontalAdvance(self._text)
 
-    def _update_scroll_state(self):
-        self._text_width = self._measure_text()
-        needs_scroll = self._text_width > self.width()
-        if needs_scroll and not self._timer.isActive():
-            self._offset = 0
+    def _overflow(self) -> int:
+        return max(0, self._text_width() - self.width())
+
+    def _restart_if_needed(self):
+        if not self._initialized:
+            return
+        if self._overflow() > 0:
+            self._offset  = 0
             self._pausing = True
-            self._timer.start(16)        # ~60 fps
-        elif not needs_scroll:
+            if not self._timer.isActive():
+                self._timer.start()
+            QTimer.singleShot(self._pause_ms, self._start_scroll)
+        else:
             self._timer.stop()
-            self._offset = 0
-            self._scrolling = False
+            self._offset  = 0
+            self._pausing = False
+
+    # ── Qt events ──────────────────────────────────────────────────────────────
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self._update_scroll_state()
+        self._initialized = True
+        self._restart_if_needed()
 
     def showEvent(self, event):
         super().showEvent(event)
-        self._update_scroll_state()
+        if self._initialized:
+            self._restart_if_needed()
 
     def hideEvent(self, event):
         super().hideEvent(event)
         self._timer.stop()
-        self._offset = 0
+        self._offset  = 0
+        self._pausing = False
 
-    def _tick(self):
-        if self._pausing:
-            return
-
-        self._offset += self._speed
-        overflow = self._text_width - self.width()
-
-        if self._offset >= overflow + 20:       # scrolled fully off + small gap
-            self._offset = overflow + 20
-            self._pausing = True
-            QTimer.singleShot(self._pause_ms, self._reset)
-
-        self.update()
-
-    def _reset(self):
-        self._offset = 0
-        self._pausing = True
-        self.update()
-        QTimer.singleShot(self._pause_ms, self._start_scroll)
+    # ── Animation ──────────────────────────────────────────────────────────────
 
     def _start_scroll(self):
         self._pausing = False
 
+    def _tick(self):
+        if self._pausing:
+            return
+        self._offset += self._speed
+        ov = self._overflow()
+        if self._offset >= ov + 16:
+            self._offset  = ov + 16
+            self._pausing = True
+            QTimer.singleShot(self._pause_ms, self._do_reset)
+        self.update()
+
+    def _do_reset(self):
+        self._offset  = 0
+        self._pausing = True
+        self.update()
+        QTimer.singleShot(self._pause_ms, self._start_scroll)
+
     # ── Paint ──────────────────────────────────────────────────────────────────
 
     def paintEvent(self, event):
+        if not self._text:
+            return
+
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
+
+        # Explicitly fill background — never rely on transparency
+        painter.fillRect(self.rect(), self._bg_color)
+
         painter.setFont(self._font)
-
         fm = QFontMetrics(self._font)
-        y = (self.height() + fm.ascent() - fm.descent()) // 2
+        tw = self._text_width()
+        y  = (self.height() + fm.ascent() - fm.descent()) // 2
 
-        needs_scroll = self._text_width > self.width()
-
-        if needs_scroll:
+        if tw > self.width():
             painter.setClipRect(QRect(0, 0, self.width(), self.height()))
-            painter.setPen(self._color)
+            painter.setPen(QPen(self._color))
             painter.drawText(-int(self._offset), y, self._text)
 
-            # Soft fade edges so the scroll looks polished
-            fade_w = min(28, self.width() // 5)
-            for x in range(fade_w):
-                alpha = int(255 * (1 - x / fade_w))
-                fade_color = QColor(self._bg_color)
-                fade_color.setAlpha(alpha)
-                painter.setPen(fade_color)
-                painter.drawLine(x, 0, x, self.height())                    # left edge
-                painter.drawLine(self.width() - x - 1, 0,
-                                 self.width() - x - 1, self.height())       # right edge
+            # Soft fade on both edges
+            fade = min(24, self.width() // 6)
+            for i in range(fade):
+                ratio = 1.0 - i / fade
+                c = QColor(self._bg_color)
+                c.setAlphaF(ratio)
+                painter.setPen(QPen(c))
+                painter.drawLine(i, 0, i, self.height())
+                painter.drawLine(self.width() - i - 1, 0, self.width() - i - 1, self.height())
         else:
-            # Centre the text when it fits
-            x = (self.width() - self._text_width) // 2
-            painter.setPen(self._color)
+            x = max(0, (self.width() - tw) // 2)
+            painter.setPen(QPen(self._color))
             painter.drawText(x, y, self._text)
 
         painter.end()
