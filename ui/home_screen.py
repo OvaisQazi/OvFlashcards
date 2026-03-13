@@ -114,10 +114,8 @@ class HomeScreen(QWidget):
         self.app.navigate_to(AllCardsScreen(self.app, self.language))
 
     def _spaced(self):
-        QMessageBox.information(
-            self, "Coming Soon",
-            "Spaced repetition practice is coming soon!\n\nIt will use the FSRS algorithm to schedule your reviews."
-        )
+        from ui.practice_screen import PracticeScreen
+        self.app.navigate_to(PracticeScreen(self.app, self.language))
 
     def _delete_deck(self):
         reply = QMessageBox.warning(
