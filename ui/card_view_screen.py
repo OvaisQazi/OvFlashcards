@@ -38,16 +38,19 @@ class CardViewScreen(QWidget):
 
         back_btn = QPushButton("← Back")
         back_btn.setStyleSheet(BTN_GHOST)
+        back_btn.setFocusPolicy(Qt.NoFocus)
         back_btn.clicked.connect(self.app.go_back)
         top.addWidget(back_btn)
         top.addStretch()
 
         edit_btn = QPushButton("Edit")
         edit_btn.setStyleSheet(BTN_SECONDARY)
+        edit_btn.setFocusPolicy(Qt.NoFocus)
         edit_btn.clicked.connect(self._edit)
 
         del_btn = QPushButton("Delete")
         del_btn.setStyleSheet(BTN_DANGER)
+        del_btn.setFocusPolicy(Qt.NoFocus)
         del_btn.clicked.connect(self._delete)
 
         top.addWidget(edit_btn)
@@ -119,6 +122,10 @@ class CardViewScreen(QWidget):
         layout.addLayout(center_row)
 
         layout.addStretch()
+
+        # Grab focus so Space/Escape are handled here, not by any button
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setFocus()
 
     # ── Styling helpers ────────────────────────────────────────────────────────
 
