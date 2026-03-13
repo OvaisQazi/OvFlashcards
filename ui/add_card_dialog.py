@@ -16,7 +16,7 @@ class ColorButton(QPushButton):
         super().__init__(parent)
         self.color_hex = color_hex
         self.color_name = color_name
-        self.setFixedSize(36, 36)
+        self.setFixedSize(46, 46)
         self.setToolTip(color_name)
         self.setCheckable(True)
         self._refresh_style()
@@ -55,11 +55,11 @@ class AddCardDialog(QDialog):
         super().__init__(parent)
         self.language = language
         self.card_data = card_data
-        self.selected_color = card_data["color"] if card_data else "#FFF8E7"
+        self.selected_color = card_data["color"] if card_data else DEFAULT_CARD_COLOR
         self._color_btns: list[ColorButton] = []
 
         self.setWindowTitle("Edit Card" if card_data else "New Card")
-        self.setMinimumWidth(540)
+        self.setMinimumWidth(580)
         self.setModal(True)
 
         # Apply a variant of the app style suited to a dialog background
@@ -148,7 +148,7 @@ class AddCardDialog(QDialog):
                 btn.setChecked(True)
             group.addButton(btn)
             self._color_btns.append(btn)
-            grid.addWidget(btn, idx // 8, idx % 8)
+            grid.addWidget(btn, idx // 7, idx % 7)
 
         layout.addLayout(grid)
 

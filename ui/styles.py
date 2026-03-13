@@ -7,24 +7,25 @@ TEXT_PRIMARY= "#F5ECD7"   # warm off-white
 TEXT_SECONDARY = "#9E8E7E"
 BORDER      = "#3D3228"
 
-# ── 15 card colour options ────────────────────────────────────────────────────
+# ── 14 card colour options (2 rows of 7) ─────────────────────────────────────
 CARD_COLORS = [
-    ("#FEFEFE", "Snow White"),
-    ("#FFF8E7", "Cream"),
-    ("#FFF9C4", "Lemon"),
-    ("#FFE0B2", "Peach"),
-    ("#FFCCBC", "Apricot"),
-    ("#F8BBD9", "Blush"),
-    ("#E1BEE7", "Lavender"),
-    ("#C5CAE9", "Periwinkle"),
-    ("#B3E5FC", "Sky Blue"),
-    ("#B2EBF2", "Aqua"),
-    ("#C8E6C9", "Mint"),
-    ("#DCEDC8", "Sage"),
-    ("#FFE082", "Amber"),
-    ("#FFAB91", "Coral"),
-    ("#CFD8DC", "Slate"),
+    ("#F4827A", "Coral Pink"),
+    ("#87CEEB", "Sky Blue"),
+    ("#A8E6CF", "Soft Mint"),
+    ("#FADA5E", "Goldenrod"),
+    ("#E6D5F5", "Lavender"),
+    ("#FFCBA4", "Peach"),
+    ("#93E9BE", "Seafoam"),
+    ("#DDA0DD", "Orchid"),
+    ("#FFE4E1", "Misty Rose"),
+    ("#AFEEEE", "Turquoise"),
+    ("#F4C99B", "Sandy Brown"),
+    ("#A8C5DA", "Steel Blue"),
+    ("#CCFF99", "Lime Green"),
+    ("#D3D3D3", "Silver Gray"),
 ]
+
+DEFAULT_CARD_COLOR = "#FFE4E1"   # Misty Rose
 
 # ── Global stylesheet ─────────────────────────────────────────────────────────
 APP_STYLE = f"""

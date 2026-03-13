@@ -17,7 +17,7 @@ class MiniCard(QFrame):
         super().__init__(parent)
         self.card = card
         self._on_click = on_click
-        self.setFixedSize(165, 115)
+        self.setFixedSize(210, 145)
         self.setCursor(Qt.PointingHandCursor)
 
         # Auto-detect readable text colour for any card background
@@ -42,7 +42,7 @@ class MiniCard(QFrame):
 
         word = QLabel(card["word"])
         word.setAlignment(Qt.AlignCenter)
-        word.setFont(QFont("Georgia", 13, QFont.Bold))
+        word.setFont(QFont("Georgia", 16, QFont.Bold))
         word.setWordWrap(True)
         word.setStyleSheet(
             f"color: {text_color}; background: transparent; border: none;"
@@ -109,7 +109,7 @@ class AllCardsScreen(QWidget):
         grid.setContentsMargins(4, 4, 4, 16)
         grid.setAlignment(Qt.AlignLeft | Qt.AlignTop)
 
-        COLS = 5
+        COLS = 4
         for i, card in enumerate(cards):
             mini = MiniCard(card, self._open_card)
             grid.addWidget(mini, i // COLS, i % COLS)

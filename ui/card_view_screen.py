@@ -62,7 +62,7 @@ class CardViewScreen(QWidget):
 
         # ── Card widget ────────────────────────────────────────────────────────
         self.card_frame = QFrame()
-        self.card_frame.setFixedSize(460, 300)
+        self.card_frame.setFixedSize(560, 370)
         self.card_frame.setCursor(Qt.PointingHandCursor)
         self._apply_card_style()
 
@@ -76,7 +76,7 @@ class CardViewScreen(QWidget):
         # Front content
         self.front_word = QLabel(self.card["word"])
         self.front_word.setAlignment(Qt.AlignCenter)
-        self.front_word.setFont(QFont("Georgia", 34, QFont.Bold))
+        self.front_word.setFont(QFont("Georgia", 44, QFont.Bold))
         self.front_word.setWordWrap(True)
         self.front_word.setStyleSheet(
             f"color: {tc}; background: transparent; border: none;"
@@ -86,7 +86,7 @@ class CardViewScreen(QWidget):
         # Back content (hidden initially)
         self.back_trans = QLabel(self.card["translation"])
         self.back_trans.setAlignment(Qt.AlignCenter)
-        self.back_trans.setFont(QFont("Georgia", 28, QFont.Bold))
+        self.back_trans.setFont(QFont("Georgia", 38, QFont.Bold))
         self.back_trans.setWordWrap(True)
         self.back_trans.setStyleSheet(
             f"color: {tc}; background: transparent; border: none;"
@@ -96,7 +96,7 @@ class CardViewScreen(QWidget):
 
         self.back_desc = QLabel(self.card.get("description", ""))
         self.back_desc.setAlignment(Qt.AlignCenter)
-        self.back_desc.setFont(QFont("Helvetica Neue", 13))
+        self.back_desc.setFont(QFont("Helvetica Neue", 16))
         self.back_desc.setWordWrap(True)
         self.back_desc.setStyleSheet(
             f"color: {sc}; background: transparent; border: none;"

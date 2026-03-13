@@ -37,7 +37,7 @@ def create_language_db(language):
             word        TEXT NOT NULL,
             translation TEXT NOT NULL,
             description TEXT DEFAULT '',
-            color       TEXT DEFAULT '#FFF8E7',
+            color       TEXT DEFAULT '#FFE4E1',
             created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
