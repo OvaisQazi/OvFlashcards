@@ -24,3 +24,6 @@ dist/
 
 # Misc
 *.log
+
+# ai code checker
+all.txt
