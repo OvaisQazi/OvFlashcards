@@ -1,6 +1,6 @@
 import sqlite3
 import os
-from datetime import date, datetime
+from datetime import date, timedelta
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
@@ -126,7 +126,6 @@ def save_review(language, card_id, days_until_next: int):
     """
     Set next_review to today + days_until_next and increment review_count.
     """
-    from datetime import timedelta
     next_date = (date.today() + timedelta(days=days_until_next)).isoformat()
     path = get_db_path(language)
     conn = sqlite3.connect(path)
