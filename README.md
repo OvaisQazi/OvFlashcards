@@ -85,6 +85,37 @@ python main.py
 
 ---
 
+## Packaging as a macOS App
+
+### 1. Clean any previous build
+
+```bash
+rm -rf build dist OvFlashcards.spec
+```
+
+### 2. Build the app
+
+```bash
+pyinstaller --windowed --name "OvFlashcards" --onedir \
+  --osx-bundle-identifier "com.ovais.ovflashcards" \
+  --icon=icon.icns main.py
+```
+
+### 3. Test the app
+
+```bash
+open dist/OvFlashcards.app
+```
+
+### 4. Install on your Mac
+
+```bash
+cp -r dist/OvFlashcards.app /Applications/
+xattr -cr /Applications/OvFlashcards.app
+```
+
+---
+
 ## Project Structure
 
 ```
@@ -93,6 +124,8 @@ OvFlashcards/
 ├── database.py              # All SQLite operations
 ├── scheduler.py             # Spaced repetition interval constants
 ├── requirements.txt
+├── icon.png                 # Source icon (1024×1024 PNG)
+├── icon.icns                # macOS icon for PyInstaller
 │
 └── ui/
     ├── styles.py            # Theme, colours, button styles
