@@ -4,6 +4,18 @@ A personal language learning flashcard app for macOS, built with Python and PySi
 
 ---
 
+## Download
+
+A packaged macOS app is available on the [Releases](https://github.com/OvaisQazi/OvFlashcards/releases) page — no Python installation required.
+
+1. Download the latest `OvFlashcards.app.zip` from Releases
+2. Unzip and move `OvFlashcards.app` to your Applications folder
+3. On first launch, right-click the app and select **Open** (required once due to macOS Gatekeeper)
+
+> **Note:** The app is not notarized with Apple. macOS may warn you when opening it for the first time. This is expected — right-click → Open to bypass the warning.
+
+---
+
 ## Features
 
 - **Multiple language decks** — create a separate deck for each language you are learning
@@ -20,7 +32,19 @@ A personal language learning flashcard app for macOS, built with Python and PySi
 
 ---
 
-## Requirements
+## Data Storage
+
+User data (language decks and cards) is stored locally at:
+
+```
+~/OvFlashcards/data/
+```
+
+Each language gets its own SQLite database file (e.g. `german.db`). No data is sent anywhere — everything stays on your machine.
+
+---
+
+## Requirements (running from source)
 
 - macOS
 - Python 3.11+
@@ -29,7 +53,7 @@ A personal language learning flashcard app for macOS, built with Python and PySi
 
 ---
 
-## Installation
+## Installation (running from source)
 
 ### 1. Clone the repository
 
@@ -82,18 +106,6 @@ OvFlashcards/
     ├── marquee_label.py     # Scrolling text widget for long words
     └── practice_screen.py  # Spaced repetition practice session
 ```
-
----
-
-## Data Storage
-
-User data (language decks and cards) is stored locally at:
-
-```
-~/OvFlashcards/data/
-```
-
-Each language gets its own SQLite database file (e.g. `german.db`). No data is sent anywhere — everything stays on your machine.
 
 ---
 
