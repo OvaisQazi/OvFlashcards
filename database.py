@@ -2,7 +2,7 @@ import sqlite3
 import os
 from datetime import date, timedelta
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+DATA_DIR = os.path.join(os.path.expanduser("~"), "OvFlashcards", "data")
 
 
 def ensure_data_dir():
