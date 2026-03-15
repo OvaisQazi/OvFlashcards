@@ -1,6 +1,6 @@
 import sqlite3
 import os
-from datetime import datetime, timezone
+from datetime import date, datetime
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
@@ -39,12 +39,8 @@ def create_language_db(language):
             description TEXT DEFAULT '',
             color       TEXT DEFAULT '#FFE4E1',
             created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            due         TIMESTAMP,
-            stability   REAL,
-            difficulty  REAL,
-            state       INTEGER DEFAULT 0,
-            step        INTEGER DEFAULT 0,
-            last_review TIMESTAMP
+            next_review DATE DEFAULT NULL,
+            review_count INTEGER DEFAULT 0
         )
     ''')
     conn.commit()
@@ -52,24 +48,17 @@ def create_language_db(language):
 
 
 def migrate_cards_table(language):
-    """Add FSRS columns to existing DBs that predate spaced repetition."""
+    """Add practice columns to older DBs."""
     path = get_db_path(language)
     if not os.path.exists(path):
         return
     conn = sqlite3.connect(path)
     c = conn.cursor()
     existing = {row[1] for row in c.execute("PRAGMA table_info(cards)")}
-    new_cols = {
-        "due":         "TIMESTAMP",
-        "stability":   "REAL",
-        "difficulty":  "REAL",
-        "state":       "INTEGER DEFAULT 0",
-        "step":        "INTEGER DEFAULT 0",
-        "last_review": "TIMESTAMP",
-    }
-    for col, col_type in new_cols.items():
-        if col not in existing:
-            c.execute(f"ALTER TABLE cards ADD COLUMN {col} {col_type}")
+    if "next_review" not in existing:
+        c.execute("ALTER TABLE cards ADD COLUMN next_review DATE DEFAULT NULL")
+    if "review_count" not in existing:
+        c.execute("ALTER TABLE cards ADD COLUMN review_count INTEGER DEFAULT 0")
     conn.commit()
     conn.close()
 
@@ -87,80 +76,69 @@ def get_all_cards(language):
              "description": r[3], "color": r[4]} for r in rows]
 
 
-def get_due_cards(language):
+def get_practice_cards(language):
     """
-    Returns cards due now. If nothing is due, returns all cards ordered
-    by due date (soonest first) so practice always has something to show.
+    Returns (due_cards, new_cards) as two separate lists.
+
+    due_cards  — cards whose next_review is today or in the past,
+                 sorted by next_review ascending (most overdue first).
+    new_cards  — cards never practiced (next_review IS NULL),
+                 in insertion order.
     """
     migrate_cards_table(language)
     path = get_db_path(language)
     if not os.path.exists(path):
-        return []
-    now = datetime.now(timezone.utc).isoformat()
+        return [], []
+
+    today = date.today().isoformat()
     conn = sqlite3.connect(path)
     c = conn.cursor()
 
-    # First try: new cards + overdue cards
+    # Due cards: next_review <= today
     c.execute("""
-        SELECT id, word, translation, description, color,
-               due, stability, difficulty, state, step, last_review
+        SELECT id, word, translation, description, color, next_review, review_count
         FROM cards
-        WHERE state = 0 OR (state > 0 AND (due IS NULL OR due <= ?))
-        ORDER BY CASE WHEN state = 0 THEN 1 ELSE 0 END, due ASC
-    """, (now,))
-    rows = c.fetchall()
+        WHERE next_review IS NOT NULL AND next_review <= ?
+        ORDER BY next_review ASC
+    """, (today,))
+    due_rows = c.fetchall()
 
-    # Fallback: if nothing is due, return all cards sorted by due date
-    if not rows:
-        c.execute("""
-            SELECT id, word, translation, description, color,
-                   due, stability, difficulty, state, step, last_review
-            FROM cards
-            ORDER BY due ASC NULLS FIRST
-        """)
-        rows = c.fetchall()
+    # New cards: never reviewed
+    c.execute("""
+        SELECT id, word, translation, description, color, next_review, review_count
+        FROM cards
+        WHERE next_review IS NULL
+        ORDER BY id ASC
+    """)
+    new_rows = c.fetchall()
 
     conn.close()
-    return [_row_to_card(r) for r in rows]
+
+    def to_card(r):
+        return {"id": r[0], "word": r[1], "translation": r[2],
+                "description": r[3], "color": r[4],
+                "next_review": r[5], "review_count": r[6]}
+
+    return [to_card(r) for r in due_rows], [to_card(r) for r in new_rows]
 
 
-def save_card_review(language, card_id, fsrs_card):
-    """Persist the updated FSRS state after a review."""
+def save_review(language, card_id, days_until_next: int):
+    """
+    Set next_review to today + days_until_next and increment review_count.
+    """
+    from datetime import timedelta
+    next_date = (date.today() + timedelta(days=days_until_next)).isoformat()
     path = get_db_path(language)
     conn = sqlite3.connect(path)
     c = conn.cursor()
-    due         = fsrs_card.due.isoformat()         if fsrs_card.due         else None
-    last_review = fsrs_card.last_review.isoformat() if fsrs_card.last_review else None
-    state       = int(fsrs_card.state)              if fsrs_card.state       else 0
     c.execute("""
-        UPDATE cards SET
-            due         = ?,
-            stability   = ?,
-            difficulty  = ?,
-            state       = ?,
-            step        = ?,
-            last_review = ?
+        UPDATE cards
+        SET next_review  = ?,
+            review_count = review_count + 1
         WHERE id = ?
-    """, (
-        due,
-        fsrs_card.stability,
-        fsrs_card.difficulty,
-        state,
-        fsrs_card.step,
-        last_review,
-        card_id,
-    ))
+    """, (next_date, card_id))
     conn.commit()
     conn.close()
-
-
-def _row_to_card(r):
-    return {
-        "id": r[0], "word": r[1], "translation": r[2],
-        "description": r[3], "color": r[4],
-        "due": r[5], "stability": r[6], "difficulty": r[7],
-        "state": r[8], "step": r[9], "last_review": r[10],
-    }
 
 
 def add_card(language, word, translation, description, color):

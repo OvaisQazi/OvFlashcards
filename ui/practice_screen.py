@@ -2,10 +2,11 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame, QGraphicsOpacityEffect, QProgressBar
 )
-from PySide6.QtCore import Qt, QPropertyAnimation, QTimer
-from PySide6.QtGui import QFont, QFontMetrics, QColor
+from PySide6.QtCore import Qt, QPropertyAnimation
+from PySide6.QtGui import QFont, QFontMetrics
+
 import database
-from scheduler import rate_card, Rating
+from scheduler import EASY, MEDIUM, HARD
 from ui.styles import *
 
 _CARD_INNER_W = 472
@@ -37,7 +38,7 @@ def _truncate_to_lines(text, font, max_width, max_lines):
                 result_lines.append(current)
         if len(result_lines) >= max_lines:
             break
-    # check if cut
+    # check if truncated
     all_lines = []
     for para in text.splitlines():
         words = para.split()
@@ -59,58 +60,49 @@ def _truncate_to_lines(text, font, max_width, max_lines):
     return "\n".join(result_lines)
 
 
-# ── Rating button ──────────────────────────────────────────────────────────────
+# ── Rating button styles ───────────────────────────────────────────────────────
 
-_RATING_STYLES = {
-    "Again": f"""
-        QPushButton {{
-            background-color: #4D2020;
-            color: #FF8A80;
-            border: 1px solid #7B3333;
-            border-radius: 10px;
-            padding: 12px 0px;
-            font-size: 14px;
-            font-weight: bold;
-        }}
-        QPushButton:hover {{ background-color: #6B2C2C; }}
-    """,
-    "Hard": f"""
-        QPushButton {{
-            background-color: #3D2E10;
-            color: #FFB74D;
-            border: 1px solid #6B4F1A;
-            border-radius: 10px;
-            padding: 12px 0px;
-            font-size: 14px;
-            font-weight: bold;
-        }}
-        QPushButton:hover {{ background-color: #5A4215; }}
-    """,
-    "Good": f"""
-        QPushButton {{
-            background-color: #1A3D2B;
-            color: #69F0AE;
-            border: 1px solid #2A6B47;
-            border-radius: 10px;
-            padding: 12px 0px;
-            font-size: 14px;
-            font-weight: bold;
-        }}
-        QPushButton:hover {{ background-color: #255C3F; }}
-    """,
-    "Easy": f"""
-        QPushButton {{
-            background-color: #1A2E4D;
-            color: #64B5F6;
-            border: 1px solid #1F4D80;
-            border-radius: 10px;
-            padding: 12px 0px;
-            font-size: 14px;
-            font-weight: bold;
-        }}
-        QPushButton:hover {{ background-color: #1E3F6B; }}
-    """,
+_BTN_HARD = """
+QPushButton {
+    background-color: #4D2020;
+    color: #FF8A80;
+    border: 1px solid #7B3333;
+    border-radius: 10px;
+    padding: 12px 0px;
+    font-size: 14px;
+    font-weight: bold;
 }
+QPushButton:hover { background-color: #6B2C2C; }
+QPushButton:disabled { opacity: 0.4; }
+"""
+
+_BTN_MEDIUM = """
+QPushButton {
+    background-color: #3D2E10;
+    color: #FFB74D;
+    border: 1px solid #6B4F1A;
+    border-radius: 10px;
+    padding: 12px 0px;
+    font-size: 14px;
+    font-weight: bold;
+}
+QPushButton:hover { background-color: #5A4215; }
+QPushButton:disabled { opacity: 0.4; }
+"""
+
+_BTN_EASY = """
+QPushButton {
+    background-color: #1A3D2B;
+    color: #69F0AE;
+    border: 1px solid #2A6B47;
+    border-radius: 10px;
+    padding: 12px 0px;
+    font-size: 14px;
+    font-weight: bold;
+}
+QPushButton:hover { background-color: #255C3F; }
+QPushButton:disabled { opacity: 0.4; }
+"""
 
 
 # ── Practice Screen ────────────────────────────────────────────────────────────
@@ -119,21 +111,33 @@ class PracticeScreen(QWidget):
 
     def __init__(self, app_window, language: str):
         super().__init__()
-        self.app = app_window
+        self.app      = app_window
         self.language = language
         self.is_front = True
-        self._anim = None
-        self._effect = None
+        self._anim    = None
+        self._effect  = None
         self._flipping = False
 
-        self.queue = database.get_due_cards(language)
-        self.total = len(self.queue)
-        self.reviewed = 0
-
+        self._load_queue()
         self._build_ui()
-        self._load_current_card()
 
-    # ── Build static UI shell ──────────────────────────────────────────────────
+        if self.queue:
+            self._show_current_card()
+        else:
+            self._show_empty()
+
+    # ── Queue management ───────────────────────────────────────────────────────
+
+    def _load_queue(self):
+        due, new = database.get_practice_cards(self.language)
+        # Due cards first (already sorted by date), then new cards
+        self.queue     = due + new
+        self.due_count = len(due)
+        self.new_count = len(new)
+        self.total     = len(self.queue)
+        self.reviewed  = 0
+
+    # ── Build UI ───────────────────────────────────────────────────────────────
 
     def _build_ui(self):
         self.main_layout = QVBoxLayout(self)
@@ -150,9 +154,7 @@ class PracticeScreen(QWidget):
         top.addStretch()
 
         self.counter_label = QLabel("")
-        self.counter_label.setStyleSheet(
-            f"color: {TEXT_SECONDARY}; font-size: 13px;"
-        )
+        self.counter_label.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 13px;")
         top.addWidget(self.counter_label)
         self.main_layout.addLayout(top)
         self.main_layout.addSpacing(10)
@@ -173,7 +175,15 @@ class PracticeScreen(QWidget):
             }}
         """)
         self.main_layout.addWidget(self.progress)
-        self.main_layout.addSpacing(30)
+        self.main_layout.addSpacing(20)
+
+        # ── Session info ───────────────────────────────────────────────────────
+        self.session_label = QLabel("")
+        self.session_label.setAlignment(Qt.AlignCenter)
+        self.session_label.setStyleSheet(
+            f"color: {TEXT_SECONDARY}; font-size: 13px; margin-bottom: 10px;"
+        )
+        self.main_layout.addWidget(self.session_label)
 
         # ── Title ──────────────────────────────────────────────────────────────
         title = QLabel(f"Practice — {self.language}")
@@ -193,7 +203,6 @@ class PracticeScreen(QWidget):
         self.card_inner.setSpacing(12)
         self.card_inner.setAlignment(Qt.AlignCenter)
 
-        # Placeholder labels — filled in _load_current_card
         self.lbl_word = QLabel("")
         self.lbl_word.setAlignment(Qt.AlignCenter)
         self.lbl_word.setWordWrap(True)
@@ -223,7 +232,7 @@ class PracticeScreen(QWidget):
         self.lbl_hint = QLabel("Click card or press Space to flip")
         self.lbl_hint.setAlignment(Qt.AlignCenter)
         self.lbl_hint.setStyleSheet(
-            f"color: #6A6A6A; font-size: 11px; background: transparent; border: none;"
+            "color: #6A6A6A; font-size: 11px; background: transparent; border: none;"
         )
         self.card_inner.addWidget(self.lbl_hint)
 
@@ -234,7 +243,7 @@ class PracticeScreen(QWidget):
         self.main_layout.addLayout(card_row)
         self.main_layout.addSpacing(28)
 
-        # ── Flip button (shown before flip) ────────────────────────────────────
+        # ── Flip button ────────────────────────────────────────────────────────
         self.flip_btn = QPushButton("Flip Card")
         self.flip_btn.setStyleSheet(BTN_PRIMARY)
         self.flip_btn.setFixedHeight(50)
@@ -247,22 +256,31 @@ class PracticeScreen(QWidget):
         flip_row.addStretch()
         self.main_layout.addLayout(flip_row)
 
-        # ── Rating buttons (shown after flip) ──────────────────────────────────
+        # ── Rating buttons ─────────────────────────────────────────────────────
         self.rating_widget = QWidget()
         rating_layout = QHBoxLayout(self.rating_widget)
         rating_layout.setSpacing(12)
         rating_layout.setContentsMargins(0, 0, 0, 0)
 
-        self._rating_btns = {}
-        for label, rating in [("Again", Rating.Again), ("Hard", Rating.Hard),
-                               ("Good", Rating.Good),  ("Easy", Rating.Easy)]:
-            btn = QPushButton(label)
-            btn.setStyleSheet(_RATING_STYLES[label])
+        self.btn_hard   = QPushButton(f"Hard  (+{HARD}d)")
+        self.btn_medium = QPushButton(f"Medium  (+{MEDIUM}d)")
+        self.btn_easy   = QPushButton(f"Easy  (+{EASY}d)")
+
+        self.btn_hard.setStyleSheet(_BTN_HARD)
+        self.btn_medium.setStyleSheet(_BTN_MEDIUM)
+        self.btn_easy.setStyleSheet(_BTN_EASY)
+
+        for btn in (self.btn_hard, self.btn_medium, self.btn_easy):
             btn.setFixedHeight(50)
             btn.setFocusPolicy(Qt.NoFocus)
-            btn.clicked.connect(lambda _checked, r=rating: self._rate(r))
-            self._rating_btns[label] = btn
-            rating_layout.addWidget(btn)
+
+        self.btn_hard.clicked.connect(lambda: self._rate(HARD))
+        self.btn_medium.clicked.connect(lambda: self._rate(MEDIUM))
+        self.btn_easy.clicked.connect(lambda: self._rate(EASY))
+
+        rating_layout.addWidget(self.btn_hard)
+        rating_layout.addWidget(self.btn_medium)
+        rating_layout.addWidget(self.btn_easy)
 
         self.rating_widget.hide()
         self.main_layout.addWidget(self.rating_widget)
@@ -271,20 +289,24 @@ class PracticeScreen(QWidget):
         self.setFocusPolicy(Qt.StrongFocus)
         self.setFocus()
 
-    # ── Card loading ───────────────────────────────────────────────────────────
+    # ── Show current card ──────────────────────────────────────────────────────
 
-    def _load_current_card(self):
+    def _show_current_card(self):
         if not self.queue:
-            # Shouldn't happen since _rate refills, but guard just in case
-            self.queue = database.get_due_cards(self.language)
-            self.total = len(self.queue)
-            self.reviewed = 0
-            if not self.queue:
-                self._show_finished()
-                return
+            self._show_empty()
+            return
 
         card = self.queue[0]
-        self.is_front = True
+        self.is_front  = True
+        self._flipping = False
+
+        # Determine label for this card
+        idx = self.total - len(self.queue)
+        if idx < self.due_count:
+            tag = "📅 Revision"
+        else:
+            tag = "🆕 New Card"
+        self.session_label.setText(tag)
 
         # Card background
         self.card_frame.setStyleSheet(f"""
@@ -295,7 +317,6 @@ class PracticeScreen(QWidget):
             }}
         """)
 
-        # Labels
         self.lbl_word.setText(card["word"])
         self.lbl_word.show()
         self.lbl_translation.hide()
@@ -306,23 +327,57 @@ class PracticeScreen(QWidget):
         self.flip_btn.show()
         self.rating_widget.hide()
 
-        # Progress
         done = self.total - len(self.queue)
         self.counter_label.setText(f"{done} / {self.total}")
-        self.progress.setMaximum(self.total)
+        self.progress.setMaximum(max(self.total, 1))
         self.progress.setValue(done)
+
+    # ── Empty state ────────────────────────────────────────────────────────────
+
+    def _show_empty(self):
+        self.card_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {BG_CARD};
+                border-radius: 22px;
+                border: 1px solid {BORDER};
+            }}
+        """)
+        self.lbl_word.hide()
+        self.lbl_translation.hide()
+        self.lbl_desc.hide()
+        self.flip_btn.hide()
+        self.rating_widget.hide()
+        self.session_label.setText("")
+        self.counter_label.setText("")
+        self.progress.setValue(0)
+
+        icon = QLabel("✓")
+        icon.setAlignment(Qt.AlignCenter)
+        icon.setFont(QFont("Helvetica Neue", 52))
+        icon.setStyleSheet("background: transparent; border: none; color: #4A9A6A;")
+
+        msg = QLabel("You're all caught up!\nNo cards are due for practice today.")
+        msg.setAlignment(Qt.AlignCenter)
+        msg.setFont(QFont("Georgia", 17))
+        msg.setWordWrap(True)
+        msg.setStyleSheet(f"color: #1A1A1A; background: transparent; border: none;")
+
+        self.card_inner.addWidget(icon)
+        self.card_inner.addWidget(msg)
+        self.lbl_hint.setText("Press Escape to go back")
+        self.lbl_hint.show()
 
     # ── Flip ───────────────────────────────────────────────────────────────────
 
     def _on_card_click(self):
-        if self.is_front and self.queue:
+        if self.is_front and self.queue and not self._flipping:
             self._flip()
 
     def _flip(self):
-        if not self.queue or not self.is_front:
+        if not self.queue or not self.is_front or self._flipping:
             return
+        self._flipping = True
         self.flip_btn.setEnabled(False)
-        self._flipping = True      # guard so _show_back knows flip is in progress
 
         self._effect = QGraphicsOpacityEffect(self.card_frame)
         self.card_frame.setGraphicsEffect(self._effect)
@@ -336,8 +391,7 @@ class PracticeScreen(QWidget):
         self._anim = fade_out
 
     def _show_back(self):
-        # Guard: if a rating was given while the animation was in flight, abort
-        if not self._flipping or not self.queue or self.is_front is False:
+        if not self._flipping or not self.queue:
             self._flipping = False
             return
         self._flipping = False
@@ -355,7 +409,7 @@ class PracticeScreen(QWidget):
             self.lbl_desc.setText(truncated)
             self.lbl_desc.show()
 
-        self.lbl_hint.setText("How well did you remember?")
+        self.lbl_hint.setText("How difficult was this card?")
         self.flip_btn.hide()
         self.rating_widget.show()
 
@@ -368,57 +422,17 @@ class PracticeScreen(QWidget):
 
     # ── Rating ─────────────────────────────────────────────────────────────────
 
-    def _rate(self, rating: Rating):
-        self._flipping = False     # cancel any in-flight flip animation
+    def _rate(self, days: int):
+        if not self.queue:
+            return
+        self._flipping = False
         if self._anim:
             self._anim.stop()
 
         card = self.queue.pop(0)
-        updated = rate_card(card, rating)
-        database.save_card_review(self.language, card["id"], updated)
+        database.save_review(self.language, card["id"], days)
         self.reviewed += 1
-
-        # Refill queue if exhausted — keep cumulative reviewed count
-        if not self.queue:
-            self.queue = database.get_due_cards(self.language)
-            self.total = len(self.queue)
-
-        self._load_current_card()
-
-    # ── Finished ───────────────────────────────────────────────────────────────
-
-    def _show_finished(self):
-        # Clear card frame
-        self.card_frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: {BG_CARD};
-                border-radius: 22px;
-                border: 1px solid {BORDER};
-            }}
-        """)
-        self.lbl_word.hide()
-        self.lbl_translation.hide()
-        self.lbl_desc.hide()
-        self.flip_btn.hide()
-        self.rating_widget.hide()
-
-        done_lbl = QLabel("🎉")
-        done_lbl.setAlignment(Qt.AlignCenter)
-        done_lbl.setFont(QFont("Helvetica Neue", 48))
-        done_lbl.setStyleSheet("background: transparent; border: none;")
-
-        msg = QLabel(f"All done!\nYou reviewed {self.reviewed} card{'s' if self.reviewed != 1 else ''} today.")
-        msg.setAlignment(Qt.AlignCenter)
-        msg.setFont(QFont("Georgia", 18))
-        msg.setWordWrap(True)
-        msg.setStyleSheet(f"color: #1A1A1A; background: transparent; border: none;")
-
-        self.card_inner.addWidget(done_lbl)
-        self.card_inner.addWidget(msg)
-        self.lbl_hint.setText("Press Escape to go back")
-
-        self.counter_label.setText(f"{self.total} / {self.total}")
-        self.progress.setValue(self.total)
+        self._show_current_card()
 
     # ── Key events ─────────────────────────────────────────────────────────────
 
@@ -426,7 +440,7 @@ class PracticeScreen(QWidget):
         if event.key() == Qt.Key_Escape:
             self.app.go_back()
         elif event.key() in (Qt.Key_Space, Qt.Key_Return):
-            if self.is_front:
+            if self.is_front and self.queue:
                 self._flip()
         else:
             super().keyPressEvent(event)
